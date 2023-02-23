@@ -1,2 +1,2 @@
 
-wrong sql;
+select 1;
