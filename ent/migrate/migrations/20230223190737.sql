@@ -1,2 +1,2 @@
-drop table users;
-drop table posts;
+
+wrong sql;
