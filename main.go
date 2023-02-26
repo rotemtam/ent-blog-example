@@ -2,14 +2,25 @@ package main
 
 import (
 	"context"
+	"embed"
 	"flag"
 	"fmt"
+	"html/template"
 	"log"
+	"net/http"
 
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/rotemtam/ent-blog-example/ent"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/rotemtam/ent-blog-example/ent/user"
+)
+
+var (
+	//go:embed templates/*
+	resources embed.FS
+	tmpl      = template.Must(template.ParseFS(resources, "templates/*"))
 )
 
 func main() {
@@ -32,7 +43,9 @@ func main() {
 			log.Fatalf("failed seeding the database: %v", err)
 		}
 	}
-	// ... Continue with server start.
+	srv := newServer(client)
+	r := newRouter(srv)
+	log.Fatal(http.ListenAndServe(":8080", r))
 }
 
 func seed(ctx context.Context, client *ent.Client) error {
@@ -61,4 +74,37 @@ func seed(ctx context.Context, client *ent.Client) error {
 		SetBody("This is my first post").
 		SetAuthor(r).
 		Exec(ctx)
+}
+
+type server struct {
+	client *ent.Client
+}
+
+func newServer(client *ent.Client) *server {
+	return &server{client: client}
+}
+
+// index serves the blog home page
+func (s *server) index(w http.ResponseWriter, r *http.Request) {
+	posts, err := s.client.Post.
+		Query().
+		WithAuthor().
+		All(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if err := tmpl.Execute(w, posts); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
+// newRouter creates a new router with the blog handlers mounted.
+func newRouter(srv *server) chi.Router {
+	r := chi.NewRouter()
+	r.Use(middleware.Logger)
+	r.Use(middleware.Recoverer)
+	r.Get("/", srv.index)
+	return r
 }
