@@ -12,6 +12,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/rotemtam/ent-blog-example/ent"
+	"github.com/rotemtam/ent-blog-example/ent/post"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/rotemtam/ent-blog-example/ent/user"
@@ -38,7 +39,7 @@ func main() {
 
 	ctx := context.Background()
 	// If we don't have any posts yet, seed the database.
-	if client.Post.Query().ExistX(ctx) {
+	if !client.Post.Query().ExistX(ctx) {
 		if err := seed(ctx, client); err != nil {
 			log.Fatalf("failed seeding the database: %v", err)
 		}
@@ -89,6 +90,7 @@ func (s *server) index(w http.ResponseWriter, r *http.Request) {
 	posts, err := s.client.Post.
 		Query().
 		WithAuthor().
+		Order(ent.Desc(post.FieldCreatedAt)).
 		All(r.Context())
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -100,11 +102,29 @@ func (s *server) index(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// add creates a new blog post.
+func (s *server) add(w http.ResponseWriter, r *http.Request) {
+	author, err := s.client.User.Query().Only(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if err := s.client.Post.Create().
+		SetTitle(r.FormValue("title")).
+		SetBody(r.FormValue("body")).
+		SetAuthor(author).
+		Exec(r.Context()); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+	http.Redirect(w, r, "/", http.StatusFound)
+}
+
 // newRouter creates a new router with the blog handlers mounted.
 func newRouter(srv *server) chi.Router {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 	r.Get("/", srv.index)
+	r.Post("/add", srv.add)
 	return r
 }

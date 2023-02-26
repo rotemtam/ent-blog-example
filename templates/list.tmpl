@@ -26,8 +26,25 @@
                     </p>
                 {{- end }}
             </div>
-
+            <div class="col-md-12">
+                <hr/>
+                <h2>Create a new post</h2>
+                <form action="/add" method="post">
+                    <div class="mb-3">
+                        <label for="title" class="form-label">Title</label>
+                        <input name="title" type="text" class="form-control" id="title" placeholder="Once upon a time..">
+                    </div>
+                    <div class="mb-3">
+                        <label for="body" class="form-label">Body</label>
+                        <textarea name="body" class="form-control" id="body" rows="8"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <button type="submit" class="btn btn-primary mb-3">Post</button>
+                    </div>
+                </form>
+            </div>
         </div>
+
     </main>
     <footer class="pt-5 my-5 text-muted border-top">
         <p>

@@ -41,3 +41,31 @@ func TestIndex(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, string(body), "Hello, World!")
 }
+
+func TestAdd(t *testing.T) {
+	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
+	defer client.Close()
+	err := seed(context.Background(), client)
+	require.NoError(t, err)
+
+	srv := newServer(client)
+	r := newRouter(srv)
+
+	ts := httptest.NewServer(r)
+	defer ts.Close()
+
+	// Post the form.
+	resp, err := ts.Client().PostForm(ts.URL+"/add", map[string][]string{
+		"title": {"Testing, one, two."},
+		"body":  {"This is a test"},
+	})
+	require.NoError(t, err)
+	// We should be redirected to the index page and receive 200 OK.
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+
+	// The home page should contain our new post.
+	require.Contains(t, string(body), "This is a test")
+}
